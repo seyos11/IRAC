@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<script src="http://cdn.dashjs.org/latest/dash.all.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/moment@2.24.0/min/moment.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming@1.8.0"></script>
+<title>Ejemplo de visualización de video a partir de MPD</title>
+<style>
+	video {
+		width: 720px;
+		heigh: 360px;		
+}
+</style>
+</head>
+<body>
+
+
+<div class="code"><video id= "video" class="dashjs-player" autoplay controls preload="auto" muted></video>
+    </div>
+    <div class="code"><p>Video Bitrate: <span id="bitrate"></span> kbps</p>
+        <p>Video Buffer: <span id="buffer"></span> seconds</p>
+        <p>Video Representation: <span id="representation"></span>
+
+        </p>
+
+    </div>
+<div class="mychart" style="heigh:360px; width:720px">
+	<canvas id="myChart"></canvas>
+</div>
+<script>document.addEventListener("DOMContentLoaded", function () {init();});function init(){var video,player,mpd_url = "./stream.mpd";
+			video = document.querySelector("video");
+			player = dashjs.MediaPlayer().create();
+
+			player.initialize(video, mpd_url, true);
+			player.on(dashjs.MediaPlayer.events["PLAYBACK_ENDED"], function() {
+				clearInterval(eventPoller);
+			});
+
+			var bufferLevel=0;
+			var bitrate=0;
+
+			var eventPoller = setInterval(function() {
+				var streamInfo = player.getActiveStream().getStreamInfo();
+				var dashMetrics = player.getDashMetrics();
+				var dashAdapter = player.getDashAdapter();
+
+ 				if (dashMetrics && streamInfo) {
+ 					const periodIdx = streamInfo.index;
+ 					var repSwitch = dashMetrics.getCurrentRepresentationSwitch('video', true);
+ 					bufferLevel = dashMetrics.getCurrentBufferLevel('video', true);
+ 					bitrate = repSwitch ? Math.round(dashAdapter.
+ 						getBandwidthForRepresentation(repSwitch.to,
+ 						periodIdx) / 1000) : NaN;
+ 					document.getElementById('buffer').innerText = bufferLevel + " secs";
+ 					document.getElementById('bitrate').innerText = bitrate + " Kbps";
+ 					document.getElementById('representation').innerText = repSwitch.to;
+ 				}
+			}, 1000);
+
+			var ctx = document.getElementById('myChart').getContext('2d');
+			var chart = new Chart(ctx, {
+				type: 'line',
+				data: {
+					datasets: [{
+						label: 'Buffer Level',
+						borderColor: 'rgb(255, 99, 132)',
+						backgroundColor: 'rgba(255, 99, 132, 0.1)',
+						yAxisID: 'buffer',
+						data: []
+					}, {
+						label: 'Bitrate',
+						borderColor: 'rgb(75, 192, 192)',
+						backgroundColor: 'rgba(75, 192, 192, 0.3)',
+						yAxisID: 'bitrate',
+						data: []
+
+				}]
+				},
+				options: {
+					scales: {
+						xAxes: [{
+							type: 'realtime',
+							realtime: {
+								onRefresh: function(chart) {
+									chart.data.datasets[0].data.push({
+										x: Date.now(),
+										y: bufferLevel
+									});
+									chart.data.datasets[1].data.push({
+										x: Date.now(),
+										y: bitrate
+									});
+								}
+							},
+							delay: 15000
+						}],
+						yAxes: [
+				      {
+				        id: 'buffer',
+				        type: 'linear',
+								scaleLabel: {
+					        display: true,
+					        labelString: 'Buffer  (s)'
+								}
+				      },
+				      {
+				        id: 'bitrate',
+				        type: 'linear',
+
+								scaleLabel: {
+									display: true,
+									labelString: 'Bitrate (Kbps)'
+								}
+							}
+				    ]
+					}
+				}
+			});
+
+		}
+	</script>
+    
+    
+    
+    
+    
+    
+    
+    
+<!--<video class="dashjs-player" autoplay controls preload="auto"><source src= "https://dash.akamaized.net/envivio/EnvivioDash3/manifest.mpd" type="application/dash+xml"/></video>
+<script>var player;document.addEventListener("DOMContentLoaded", function () {init();});function init(){player = dashjs.MediaPlayerFactory.create(   document.querySelector(".dashjs-player"));};</script>-->
+
+</body>
+</html>
+
